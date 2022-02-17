@@ -1,10 +1,10 @@
 {
-  "name": "mycli",
+  "name": "juejin-save",
   "version": "1.0.0",
   "description": "save juejin article",
   "main": "bin/cli.js",
   "bin": {
-    "mycli": "bin/cli.js"
+    "juejin-save": "bin/cli.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
