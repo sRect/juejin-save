@@ -4,6 +4,7 @@ const inquirer = require("inquirer");
 const chalk = require("chalk");
 const ora = require("ora");
 const createLogger = require("progress-estimator");
+const didYouMean = require("didyoumean"); // 简易的智能匹配引擎
 const deasync = require("deasync");
 const { Command } = require("commander");
 const { puppeteerInit, saveToHtml, saveToMd, saveToPdf } = require(path.resolve(
@@ -144,7 +145,7 @@ program
   .version("0.1.0")
   .command("save  <article-url>")
   // .option("-f,", "是否强制创建")
-  .description("save juejin article")
+  .description("save https://xxx")
   .action(async (articleUrl) => {
     const { autoCreateFolder, folderName, articleName, saveOptiton } =
       await handlePrompt();
@@ -175,5 +176,25 @@ program
 
     process.exit(1);
   });
+
+// 处理非法命令
+program.arguments("<command>").action((cmd) => {
+  // 打印帮助信息
+  program.outputHelp();
+  console.log(chalk.red(`Unknown command: ${chalk.yellow(cmd)}.`));
+  suggestCommands(cmd);
+});
+
+// https://mp.weixin.qq.com/s/AH9fQdZnwMUcuczIVLOLVQ
+function suggestCommands(cmd) {
+  const avaliableCommands = program.commands.map((cmd) => {
+    return cmd._name;
+  });
+  // 简易智能匹配用户命令
+  const suggestion = didYouMean(cmd, avaliableCommands);
+  if (suggestion) {
+    console.log(`  ` + chalk.red(`Did you mean ${chalk.yellow(suggestion)}?`));
+  }
+}
 
 program.parse();

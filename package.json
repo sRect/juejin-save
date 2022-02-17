@@ -16,6 +16,7 @@
     "chalk": "^4.1.2",
     "commander": "^9.0.0",
     "deasync": "^0.1.24",
+    "didyoumean": "^1.2.2",
     "html-to-md": "^0.5.7",
     "inquirer": "^8.2.0",
     "ora": "^5.4.1",
