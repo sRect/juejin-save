@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 const path = require("path");
-const { writeFile } = require("fs/promises");
 const inquirer = require("inquirer");
 const chalk = require("chalk");
 const ora = require("ora");
 const createLogger = require("progress-estimator");
 const deasync = require("deasync");
 const { Command } = require("commander");
+const { puppeteerInit, saveToHtml, saveToMd, saveToPdf } = require(path.resolve(
+  __dirname,
+  "../puppeteer"
+));
 
 const program = new Command();
 const spinner = ora();
@@ -14,66 +17,70 @@ const logger = createLogger({
   storagePath: path.join(__dirname, "../.progress-estimator"),
 });
 
-// 模拟任务
-const task1 = () =>
-  new Promise((resolve) => {
-    setTimeout(() => {
-      resolve();
-    }, 900);
-  });
-
-const task2 = () =>
-  new Promise((resolve) => {
-    setTimeout(() => {
-      resolve();
-    }, 3600);
-  });
-
 // 交互式询问
-async function handlePrompt(name) {
+async function handlePrompt() {
   // https://github.com/SBoudrias/Inquirer.js/#objects
   return await inquirer.prompt([
     {
-      name: "resume",
-      message: `Please confirm resume name: ${name}`,
+      name: "autoCreateFolder",
+      message: `Automatically create folders?`,
       type: "confirm",
     },
     {
-      name: "personName",
-      message: "Please input your name:",
+      name: "folderName",
+      message: "Please input folder name:",
       type: "input",
+      when({ autoCreateFolder }) {
+        return !autoCreateFolder;
+      },
       validate: (val) => {
         if (!val) {
-          console.log(chalk.yellow("For example: foo"));
-          return console.log(
-            chalk.red("× The name cannot be empty, Please try again")
-          );
+          console.log(chalk.yellow("The folder name will used default name"));
         }
 
         return true;
       },
     },
     {
-      name: "sex",
-      message: "Please picker your sex:",
-      type: "list",
-      choices: ["man", "woman"],
+      name: "articleName",
+      message: "Please input this article name:",
+      type: "input",
+      validate: (val) => {
+        if (!val) {
+          console.log(
+            chalk.yellow("The article name will be used default name")
+          );
+        }
+
+        return true;
+      },
     },
+    // {
+    //   name: "saveOptiton",
+    //   message: "Please select save options:",
+    //   type: "list",
+    //   choices: ["markdown", "pdf", "html"],
+    // },
     {
-      name: "hobby",
-      messge: "Please select your hobby(multiple):",
+      name: "saveOptiton",
+      messge: "Please select save options(multiple):",
       type: "checkbox",
       choices: [
         {
-          name: "music",
-          value: "music",
-          description: "music music",
+          name: "markdown",
+          value: "markdown",
+          description: "save to markdown",
           checked: true,
         },
         {
-          name: "code",
-          value: "code",
-          description: "code code",
+          name: "pdf",
+          value: "pdf",
+          description: "save to pdf",
+        },
+        {
+          name: "html",
+          value: "html",
+          description: "save to html",
         },
       ],
     },
@@ -81,65 +88,92 @@ async function handlePrompt(name) {
 }
 
 // 询问过后的处理
-async function AfterePrompt(name, answers) {
-  console.log(chalk.green("✔ answers result:" + JSON.stringify(answers)));
+async function AfterePrompt(articleUrl, answers) {
+  console.log(chalk.green("article url:" + articleUrl));
 
   spinner.color = "yellow";
-  spinner.start("start...");
+  spinner.start(chalk.blueBright("puppeteer intial..."));
 
-  setTimeout(() => {
-    spinner.stopAndPersist({
-      symbol: chalk.green("✔"),
-      text: chalk.green("generate success"),
-    });
+  const obj = await puppeteerInit(articleUrl, answers);
 
-    console.log(`----${name}'s resume ----`);
-    console.log(chalk.green("name: "), answers.personName);
-    console.log(chalk.green("sex: "), answers.sex);
-    console.log(chalk.green("hobby: "), answers.hobby.join(","));
-  }, 2000);
+  spinner.stopAndPersist({
+    symbol: chalk.green("✓"),
+    text: chalk.green("puppeteer init ok"),
+  });
+
+  return obj;
 }
 
 // 导出文件
-async function exportResume(name, answers) {
-  const { personName, sex, hobby } = answers;
-  await logger(task1(), "resume export initial...", {
-    estimate: 300,
-  });
+async function exportFile({
+  saveOptiton,
+  page,
+  outMdFilePath,
+  outPdfFilePath,
+  outHtmlfFilePath,
+}) {
+  if (saveOptiton.includes("markdown")) {
+    await logger(saveToMd(page, outMdFilePath), "md export:", {
+      estimate: 800,
+    });
 
-  await logger(task2(), "resume export...", {
-    estimate: 3500,
-  });
+    deasync.sleep(200);
+  }
 
-  await writeFile(
-    // 当前shell执行路径
-    path.resolve(process.cwd(), "resume.doc"),
-    `
-    ----${name}'s resume ----
-    name: ${personName}
-    sex: ${sex}
-    hobby: ${hobby.join(",")}
-  `,
-    {
-      encoding: "utf8",
-    }
-  );
+  if (saveOptiton.includes("pdf")) {
+    await logger(saveToPdf(page, outPdfFilePath), "pdf export:", {
+      estimate: 2000,
+    });
+
+    deasync.sleep(200);
+  }
+
+  if (saveOptiton.includes("html")) {
+    await logger(saveToHtml(page, outHtmlfFilePath), "html export:", {
+      estimate: 50,
+    });
+  }
+
+  deasync.sleep(200);
+
+  console.log(chalk.green("✓ export file successed"));
 }
 
 // https://github.com/tj/commander.js/blob/HEAD/Readme_zh-CN.md#%E5%91%BD%E4%BB%A4
 program
   .version("0.1.0")
-  .command("create <resume-name>")
+  .command("save  <article-url>")
   // .option("-f,", "是否强制创建")
-  .description("create a resume")
-  .action(async (name) => {
-    const answers = await handlePrompt(name);
+  .description("save juejin article")
+  .action(async (articleUrl) => {
+    const { autoCreateFolder, folderName, articleName, saveOptiton } =
+      await handlePrompt();
 
-    await AfterePrompt(name, answers);
+    console.log(`----prompt asnwer----`);
+    console.log(chalk.green("autoCreateFolder: "), autoCreateFolder);
+    console.log(chalk.green("folderName: "), folderName);
+    console.log(chalk.green("articleName: "), articleName);
+    console.log(chalk.green("saveOptiton: "), saveOptiton.join(","));
 
-    deasync.sleep(3000);
+    const { browser, page, outMdFilePath, outPdfFilePath, outHtmlfFilePath } =
+      await AfterePrompt(articleUrl, {
+        autoCreateFolder,
+        folderName,
+        articleName,
+        saveOptiton,
+      });
 
-    await exportResume(name, answers);
+    await exportFile({
+      saveOptiton,
+      page,
+      outMdFilePath,
+      outPdfFilePath,
+      outHtmlfFilePath,
+    });
+
+    await browser.close();
+
+    process.exit(1);
   });
 
 program.parse();
