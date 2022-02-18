@@ -142,7 +142,7 @@ async function exportFile({
 
 // https://github.com/tj/commander.js/blob/HEAD/Readme_zh-CN.md#%E5%91%BD%E4%BB%A4
 program
-  .version("0.1.0")
+  .version(require(path.resolve(__dirname, "../package.json")).version)
   .command("save  <article-url>")
   // .option("-f,", "是否强制创建")
   .description("save https://xxx")
@@ -150,7 +150,7 @@ program
     const { autoCreateFolder, folderName, articleName, saveOptiton } =
       await handlePrompt();
 
-    console.log(`----prompt asnwer----`);
+    console.log(`----prompt answers----`);
     console.log(chalk.green("autoCreateFolder: "), autoCreateFolder);
     console.log(chalk.green("folderName: "), folderName);
     console.log(chalk.green("articleName: "), articleName);
