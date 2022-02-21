@@ -1,6 +1,6 @@
 {
   "name": "juejin-save",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "save juejin article",
   "main": "bin/cli.js",
   "bin": {
